@@ -46,6 +46,9 @@ from nerfstudio.field_components.temporal_distortions import TemporalDistortionK
 from nerfstudio.models.instant_ngp import InstantNGPModelConfig
 from nerfstudio.models.mipnerf import MipNerfModel
 from nerfstudio.models.nerfacto import NerfactoModelConfig
+from nerfstudio.models.vqad import VQADModelConfig
+
+
 from nerfstudio.models.semantic_nerfw import SemanticNerfWModelConfig
 from nerfstudio.models.tensorf import TensoRFModelConfig
 from nerfstudio.models.vanilla_nerf import NeRFModel, VanillaModelConfig
@@ -54,6 +57,7 @@ from nerfstudio.pipelines.dynamic_batch import DynamicBatchPipelineConfig
 
 method_configs: Dict[str, Config] = {}
 descriptions = {
+    "vqad" :  "Variable Bitrate Neural Fields",
     "nerfacto": "Recommended real-time model tuned for real captures. This model will be continually updated.",
     "instant-ngp": "Implementation of Instant-NGP. Recommended real-time model for bounded synthetic data.",
     "mipnerf": "High quality model for bounded scenes. (slow)",
@@ -63,6 +67,38 @@ descriptions = {
     "dnerf": "Dynamic-NeRF model. (slow)",
     "phototourism": "Uses the Phototourism data.",
 }
+
+
+method_configs["vqad"] = Config(
+    method_name="vqad",
+    trainer=TrainerConfig(
+        steps_per_eval_batch=500, steps_per_save=2000, max_num_iterations=30000, mixed_precision=True
+    ),
+    pipeline=VanillaPipelineConfig(
+        datamanager=VanillaDataManagerConfig(
+            dataparser=NerfstudioDataParserConfig(),
+            train_num_rays_per_batch=4096,
+            eval_num_rays_per_batch=4096,
+            camera_optimizer=CameraOptimizerConfig(
+                mode="SO3xR3", optimizer=AdamOptimizerConfig(lr=6e-4, eps=1e-8, weight_decay=1e-2)
+            ),
+        ),
+        model=VQADModelConfig(eval_num_rays_per_chunk=1 << 15),
+    ),
+    optimizers={
+        "proposal_networks": {
+            "optimizer": AdamOptimizerConfig(lr=1e-2, eps=1e-15),
+            "scheduler": None,
+        },
+        "fields": {
+            "optimizer": AdamOptimizerConfig(lr=1e-2, eps=1e-15),
+            "scheduler": None,
+        },
+    },
+    viewer=ViewerConfig(num_rays_per_chunk=1 << 15),
+    vis="viewer",
+)
+
 
 method_configs["nerfacto"] = Config(
     method_name="nerfacto",
