@@ -30,8 +30,8 @@ from nerfstudio.cameras.rays import RaySamples
 from nerfstudio.data.scene_box import SceneBox
 from nerfstudio.field_components.activations import trunc_exp
 from nerfstudio.field_components.embedding import Embedding
-#from nerfstudio.field_components.encodings import *
-from nerfstudio.field_components.vqad_encodings import *
+from nerfstudio.field_components.encodings import *
+from nerfstudio.field_components.codebook_encoding import *
 from nerfstudio.field_components.field_heads import (
     DensityFieldHead,
     FieldHead,
@@ -81,7 +81,7 @@ class VQADField(Field):
         self,
         aabb,
         num_images: int,
-        position_encoding:  Encoding = VQADEncoding(),
+        position_encoding:  Encoding = CodeBookEncoding(),
         direction_encoding: Encoding = SHEncoding(),
         base_mlp_num_layers: int = 3,
         base_mlp_layer_width: int = 64,
