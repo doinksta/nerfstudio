@@ -57,7 +57,7 @@
 - [Learn more](#learn-more)
 - [Supported Features](#supported-features)
 
-# About
+# About2
 
 Nerfstudio provides a simple API that allows for a simplified end-to-end process of creating, training, and testing NeRFs.
 The library supports a **more interpretable implementation of NeRFs by modularizing each component.**
