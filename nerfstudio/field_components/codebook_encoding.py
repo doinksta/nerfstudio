@@ -102,65 +102,70 @@ print(asdf.forward(in_tensor).shape)
 #         features=torch.Tensor(features)
 #         return features
 
-class CodeBookEncoding(Encoding):
-    """Learned vector-matrix encoding proposed by TensoRF
 
-    Args:
-        resolution: Resolution of grid.
-        num_components: Number of components per dimension.
-        init_scale: Initialization scale.
-    """
+#########
 
-    volume_coef: TensorType[3, "num_components", "resolution", "resolution","resolution"]
 
-    def __init__(
-        self,
-        resolution: int = 128,
-        num_components: int = 24,
-        init_scale: float = 0.1,
-        codebookwidth: int = 4,
-        codebookentry: int = 24,
-    ) -> None:
-        super().__init__(in_dim=3)
 
-        self.codebookwidth=codebookwidth
-        self.codebookentry=codebookentry
+# class CodeBookEncoding(Encoding):
+#     """Learned vector-matrix encoding proposed by TensoRF
+
+#     Args:
+#         resolution: Resolution of grid.
+#         num_components: Number of components per dimension.
+#         init_scale: Initialization scale.
+#     """
+
+#     # volume_coef: TensorType[3, "num_components", "resolution", "resolution","resolution"]
+
+
+#     def __init__(
+#         self,
+#         resolution: int = 128,
+#         init_scale: float = 0.1,
+#         codebook_width: int = 4,
+#         n_codebook_entry: int = 24,
+
+#     ) -> None:
+#         super().__init__(in_dim=3)
+
+#         self.codebook_width = codebook_width
+#         self.n_codebook_entry = n_codebook_entry
         
-        self.codebook=torch.randn(size=(codebookentry,codebookwidth))
+#         self.codebook = torch.randn(size=(self.n_codebook_entry, self.codebook_width))
 
+#         self.resolution = resolution
         
+#         self.volume_raw_prob = nn.Parameter(init_scale * torch.randn((1, self.n_codebook_entry, self.resolution, self.resolution, self.resolution)))
+#         self.codebook=nn.Parameter(init_scale * self.codebook)
         
-        self.resolution = resolution
-        self.num_components = num_components
+#     def get_out_dim(self) -> int:
+#         return self.codebook_width
+
+
+#     def forward(self, in_tensor: TensorType["bs":..., "input_dim"]) -> TensorType["bs":..., "output_dim"]:
+#         """Compute encoding for each position in in_positions
+#         in_tensor: expected range is [0, 1]
+
+#         Args:
+#             in_tensor: position inside bounds in range [-1,1],
+
+#         Returns: Encoded position
+#         """
         
-        self.volume_coef= nn.Parameter(init_scale * torch.randn((1, num_components, resolution, resolution,resolution)))
-        self.codebook=nn.Parameter(init_scale * self.codebook)
+#         # Convert in_tensor range to -1 to 1 for sampling
+#         # volume_coord=torch.stack([in_tensor[..., [0, 1 ,2]]])
+#         volume_coord = (in_tensor.view(1, -1, 1, 1, 3) * 2 - 1).detach()
         
-    def get_out_dim(self) -> int:
-        return self.codebookwidth
+#         volume_selection = torch.softmax(self.volume_raw_prob, dim=1).to(in_tensor.device)
+    
+#         volume_coef = F.grid_sample(volume_selection, volume_coord)
 
-    def forward(self, in_tensor: TensorType["bs":..., "input_dim"]) -> TensorType["bs":..., "output_dim"]:
-        """Compute encoding for each position in in_positions
+#         volume_coef = torch.moveaxis(volume_coef.view(self.n_codebook_entry, *in_tensor.shape[:-1]), 0, -1)
+        
+#         features=torch.matmul(volume_coef, self.codebook.to(in_tensor.device))
+        
+#         return features  # [..., 1 * Components]
 
-        Args:
-            in_tensor: position inside bounds in range [-1,1],
 
-        Returns: Encoded position
-        """
-       
-        volume_coord=torch.stack([in_tensor[..., [0, 1 ,2]]])
-
-        # Stop gradients from going to sampler
-
-        volume_coord= volume_coord.view(1,-1,1,1,3).detach()
-        volume_features=F.grid_sample(self.volume_coef,volume_coord,align_corners=True)
-
-        #features1=F.grid_sample()
-        features2 =volume_features
-        #breakpoint()
-        features2 =torch.moveaxis(features2.view(1* self.num_components,*in_tensor.shape[:-1]),0,-1)
-        #breakpoint()
-        #self.codebook=self.codebook.detach()
-        features=torch.matmul(features2,self.codebook)
-        #breakpoint()
-        return features  # [..., 1 * Components]
+    

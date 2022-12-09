@@ -13,7 +13,7 @@
 # limitations under the License.
 
 """
-Field for compound nerf model, adds scene contraction and image embeddings to instant ngp
+Field for compound vqad model, adds scene contraction and image embeddings to instant-ngp
 """
 
 
@@ -31,7 +31,7 @@ from nerfstudio.data.scene_box import SceneBox
 from nerfstudio.field_components.activations import trunc_exp
 from nerfstudio.field_components.embedding import Embedding
 from nerfstudio.field_components.encodings import *
-from nerfstudio.field_components.codebook_encoding import *
+#from nerfstudio.field_components.codebook_encoding import *
 from nerfstudio.field_components.field_heads import (
     DensityFieldHead,
     FieldHead,
@@ -142,12 +142,13 @@ class VQADField(Field):
             positions = (positions + 2.0) / 4.0 
         else:
             positions = SceneBox.get_normalized_positions(ray_samples.frustums.get_positions(), self.aabb)
-        #breakpoint()
-        #position[0,1]
+
+        # Positions are normalized to be in the range [0, 1]
         encoded_xyz = self.position_encoding(positions)
+        
         base_mlp_out = self.mlp_base(encoded_xyz)
         density = self.field_output_density(base_mlp_out)
-        #breakpoint()
+        
         return density, base_mlp_out
     #'''
     def get_outputs(
@@ -170,7 +171,7 @@ class VQADField(Field):
         outputs = {}
         for field_head in self.field_heads:
             encoded_dir = self.direction_encoding(ray_samples.frustums.directions)
-            #breakpoint()
+            
             mlp_out = self.mlp_head(
                 torch.cat(
                     [
@@ -181,6 +182,7 @@ class VQADField(Field):
                     dim=-1,  # type:ignore
                 )
             )
+            
             outputs[field_head.field_head_name] = field_head(mlp_out)
 
         return outputs
