@@ -52,6 +52,7 @@ from nerfstudio.model_components.renderers import (
     DepthRenderer,
     NormalsRenderer,
     RGBRenderer,
+    CodebookRenderer,
 )
 from nerfstudio.model_components.scene_colliders import NearFarCollider
 from nerfstudio.models.base_model import Model, ModelConfig
@@ -195,7 +196,10 @@ class VQADModel(Model):
         self.renderer_accumulation = AccumulationRenderer()
         self.renderer_depth = DepthRenderer()
         self.renderer_normals = NormalsRenderer()
-
+        self.renderer_codebook = CodebookRenderer()
+        #some new rennder things
+        
+        
         # losses
         self.rgb_loss = MSELoss()
 
@@ -250,6 +254,8 @@ class VQADModel(Model):
         ray_samples_list.append(ray_samples)
 
         rgb = self.renderer_rgb(rgb=field_outputs[FieldHeadNames.RGB], weights=weights)
+        
+        
         depth = self.renderer_depth(weights=weights, ray_samples=ray_samples)
         accumulation = self.renderer_accumulation(weights=weights)
 
@@ -259,6 +265,23 @@ class VQADModel(Model):
             "depth": depth,
         }
 
+        for i in range(len(field_outputs[FieldHeadNames.CODEBOOK_INDEX])):
+            # outputs['codebook_level{}'.format(i)] = ###3
+            colors = torch.tensor([
+                    [0, 0, 0],
+                    [0, 0, 1],
+                    [0, 1, 0],  
+                    [1, 0, 0],
+                    [1, 1, 0],
+                    [0, 1, 1],
+                    [1, 0, 1],
+                    [1, 1, 1]
+                    ]).float().to(field_outputs[FieldHeadNames.CODEBOOK_INDEX][i].device) 
+            x1,x2=field_outputs[FieldHeadNames.CODEBOOK_INDEX][i].shape[:2]
+            index_colors=colors[field_outputs[FieldHeadNames.CODEBOOK_INDEX][i]].view((x1,x2,3))
+            outputs['codebook_level{}'.format(i)] = self.renderer_codebook(rgb=index_colors, weights=weights)
+       
+        
         if self.config.predict_normals:
             outputs["normals"] = self.renderer_normals(normals=field_outputs[FieldHeadNames.NORMALS], weights=weights)
             outputs["pred_normals"] = self.renderer_normals(field_outputs[FieldHeadNames.PRED_NORMALS], weights=weights)
@@ -282,6 +305,7 @@ class VQADModel(Model):
         for i in range(self.config.num_proposal_iterations):
             outputs[f"prop_depth_{i}"] = self.renderer_depth(weights=weights_list[i], ray_samples=ray_samples_list[i])
 
+        #breakpoint()
         return outputs
 
     def get_metrics_dict(self, outputs, batch):

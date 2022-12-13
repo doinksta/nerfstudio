@@ -612,11 +612,11 @@ class CodeBookEncoding(Encoding):
     # volume_coef: TensorType[3, “num_components”, “resolution”, “resolution”,“resolution”]
     def __init__(
         self,
-        resolutions: int = [16,32,256],
+        resolutions: int = [16,32,128,256],
         init_scale: float = 0.1,
         codebook_width: int = 4,
         n_codebook_entry: int = 8,
-        n_codebook_level: int = 8,
+        n_codebook_level: int = 4,
         
     ) -> None:
         super().__init__(in_dim=3)
@@ -629,44 +629,56 @@ class CodeBookEncoding(Encoding):
         self.volume_raw_prob0 = nn.Parameter(init_scale * torch.randn((1, self.n_codebook_entry, self.resolutions[0], self.resolutions[0], self.resolutions[0])))
         self.volume_raw_prob1 = nn.Parameter(init_scale * torch.randn((1, self.n_codebook_entry, self.resolutions[1], self.resolutions[1], self.resolutions[1])))
         self.volume_raw_prob2 = nn.Parameter(init_scale * torch.randn((1, self.n_codebook_entry, self.resolutions[2], self.resolutions[2], self.resolutions[2])))
-        # self.volume_raw_prob3 = nn.Parameter(init_scale * torch.randn((1, self.n_codebook_entry, self.resolutions[3], self.resolutions[3], self.resolutions[3])))
+        self.volume_raw_prob3 = nn.Parameter(init_scale * torch.randn((1, self.n_codebook_entry, self.resolutions[3], self.resolutions[3], self.resolutions[3])))
         # self.volume_raw_prob4 = nn.Parameter(init_scale * torch.randn((1, self.n_codebook_entry, self.resolutions[4], self.resolutions[4], self.resolutions[4])))
         # self.volume_raw_prob5 = nn.Parameter(init_scale * torch.randn((1, self.n_codebook_entry, self.resolutions[5], self.resolutions[5], self.resolutions[5])))
         # self.volume_raw_prob6 = nn.Parameter(init_scale * torch.randn((1, self.n_codebook_entry, self.resolutions[6], self.resolutions[6], self.resolutions[6])))
         # self.volume_raw_prob7 = nn.Parameter(init_scale * torch.randn((1, self.n_codebook_entry, self.resolutions[7], self.resolutions[7], self.resolutions[7])))
         
+       
         self.codebook=nn.Parameter(init_scale * self.codebook)
     
     def get_out_dim(self) -> int:
-        return self.codebook_width*3
+        return self.codebook_width*self.n_codebook_level
     
     def forward(self, in_tensor: TensorType["bs":..., "input_dim"]) -> TensorType["bs":..., "output_dim"]:
         volume_coord = (in_tensor.view(1, -1, 1, 1, 3) * 2 - 1).detach()
+        #now try to keep the initial codebook fixed
+        #self.codebook=self.codebook.detach() #set the codebook to be fixed
         
         #resolution-16
         volume_selection0 = torch.softmax(self.volume_raw_prob0, dim=1).to(in_tensor.device)
         volume_coef0 = F.grid_sample(volume_selection0, volume_coord)
         volume_coef0= torch.moveaxis(volume_coef0.view(self.n_codebook_entry, *in_tensor.shape[:-1]), 0, -1)
         features0=torch.matmul(volume_coef0, self.codebook[0].to(in_tensor.device))
+        codebook_max0,codebook_index0=torch.max(volume_coef0,dim=-1,keepdim=True)
         
         #resolution-32
         volume_selection1 = torch.softmax(self.volume_raw_prob1, dim=1).to(in_tensor.device)
         volume_coef1 = F.grid_sample(volume_selection1, volume_coord)
         volume_coef1= torch.moveaxis(volume_coef1.view(self.n_codebook_entry, *in_tensor.shape[:-1]), 0, -1)
         features1=torch.matmul(volume_coef1, self.codebook[1].to(in_tensor.device))
+        
+        codebook_max1,codebook_index1=torch.max(volume_coef1,dim=-1,keepdim=True)
 
-        #resolution-64
+        #resolution-128
         volume_selection2 = torch.softmax(self.volume_raw_prob2, dim=1).to(in_tensor.device)
         volume_coef2 = F.grid_sample(volume_selection2, volume_coord)
         volume_coef2= torch.moveaxis(volume_coef2.view(self.n_codebook_entry, *in_tensor.shape[:-1]), 0, -1)
+        
+        codebook_max2,codebook_index2=torch.max(volume_coef2,dim=-1,keepdim=True)
+        #codebook_index2=torch.cat((codebook_index,codebook_index,codebook_index),dim=-1)
+        
         features2=torch.matmul(volume_coef2, self.codebook[2].to(in_tensor.device))
         
         
-        # #resoluiton-128
-        # volume_selection3 = torch.softmax(self.volume_raw_prob3, dim=1).to(in_tensor.device)
-        # volume_coef3 = F.grid_sample(volume_selection3, volume_coord)
-        # volume_coef3 = torch.moveaxis(volume_coef3.view(self.n_codebook_entry, *in_tensor.shape[:-1]), 0, -1)
-        # features3=torch.matmul(volume_coef3, self.codebook[3].to(in_tensor.device))
+        #resoluiton-256
+        volume_selection3 = torch.softmax(self.volume_raw_prob3, dim=1).to(in_tensor.device)
+        volume_coef3 = F.grid_sample(volume_selection3, volume_coord)
+        volume_coef3 = torch.moveaxis(volume_coef3.view(self.n_codebook_entry, *in_tensor.shape[:-1]), 0, -1)
+        features3=torch.matmul(volume_coef3, self.codebook[3].to(in_tensor.device))
+        
+        codebook_max3,codebook_index3=torch.max(volume_coef3,dim=-1,keepdim=True)
         
         # #resolution-256
         # volume_selection4 = torch.softmax(self.volume_raw_prob4, dim=1).to(in_tensor.device)
@@ -695,5 +707,6 @@ class CodeBookEncoding(Encoding):
         
         
         
-        features=torch.cat((features0, features1,features2), dim=-1)
-        return features 
+        features=torch.cat((features0, features1,features2,features3), dim=-1)
+        codebook_index=torch.cat((codebook_index0[None, ...],codebook_index1[None, ...],codebook_index2[None, ...],codebook_index3[None, ...]),dim=0)
+        return features,codebook_index #[4096,48,16]  codebook_index=[4,4096,48,1]

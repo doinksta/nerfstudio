@@ -31,13 +31,15 @@ from nerfstudio.data.scene_box import SceneBox
 from nerfstudio.field_components.activations import trunc_exp
 from nerfstudio.field_components.embedding import Embedding
 from nerfstudio.field_components.encodings import *
-#from nerfstudio.field_components.codebook_encoding import *
+from nerfstudio.field_components.codebook_encoding import *
+from nerfstudio.field_components.codebook_cpu import CodeBookEncodingCPU
 from nerfstudio.field_components.field_heads import (
     DensityFieldHead,
     FieldHead,
     FieldHeadNames,
     PredNormalsFieldHead,
     RGBFieldHead,
+    CodeBookIndexFieldHead,
     SemanticFieldHead,
     TransientDensityFieldHead,
     TransientRGBFieldHead,
@@ -56,11 +58,6 @@ except ImportError:
     # tinycudann module doesn't exist
     pass
 
-
-
-####################
-
-####################
 
 
 def get_normalized_directions(directions: TensorType["bs":..., 3]):
@@ -89,7 +86,7 @@ class VQADField(Field):
         head_mlp_layer_width: int = 32,
         appearance_embedding_dim: int = 40,
         skip_connections: Tuple = (4,),
-        field_heads: Tuple[FieldHead] = (RGBFieldHead(),),
+        field_heads: Tuple[FieldHead] = (RGBFieldHead(),CodeBookIndexFieldHead(),),
         spatial_distortion: SpatialDistortion = SceneContraction(),
     ) -> None:
         super().__init__()
@@ -144,8 +141,7 @@ class VQADField(Field):
             positions = SceneBox.get_normalized_positions(ray_samples.frustums.get_positions(), self.aabb)
 
         # Positions are normalized to be in the range [0, 1]
-        encoded_xyz = self.position_encoding(positions)
-        
+        encoded_xyz, self.codebook_index = self.position_encoding(positions)       
         base_mlp_out = self.mlp_base(encoded_xyz)
         density = self.field_output_density(base_mlp_out)
         
@@ -169,21 +165,23 @@ class VQADField(Field):
             )
 
         outputs = {}
-        for field_head in self.field_heads:
-            encoded_dir = self.direction_encoding(ray_samples.frustums.directions)
-            
-            mlp_out = self.mlp_head(
-                torch.cat(
-                    [
-                        encoded_dir,
-                        density_embedding,  # type:ignore
-                        embedded_appearance,
-                    ],
-                    dim=-1,  # type:ignore
-                )
+        #breakpoint()
+        field_head =self.field_heads[0]
+        encoded_dir = self.direction_encoding(ray_samples.frustums.directions)
+        #breakpoint()
+        mlp_out = self.mlp_head(
+            torch.cat(
+                [
+                    encoded_dir,
+                    density_embedding,  # type:ignore
+                    embedded_appearance,
+                ],
+                dim=-1,  # type:ignore
             )
-            
-            outputs[field_head.field_head_name] = field_head(mlp_out)
-
+        )
+        outputs[field_head.field_head_name] = field_head(mlp_out)#[4096,48,3]
+        field_head =self.field_heads[1] 
+        outputs[field_head.field_head_name]= self.codebook_index#[4,4096,48,1]
+        # breakpoint()
         return outputs
 
