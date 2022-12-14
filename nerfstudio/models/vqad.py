@@ -115,6 +115,10 @@ class VQADModelConfig(ModelConfig):
     """Whether use single jitter or not for the proposal networks."""
     predict_normals: bool = False
     """Whether to predict normals or not."""
+    ### customize below ###;
+    # TODO: path to checkpoint that you want to load info
+    # TODO: list / other way of passing in multiple datasets at once,
+    # and generating all of them
 
 
 class VQADModel(Model):

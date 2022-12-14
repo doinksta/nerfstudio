@@ -148,6 +148,8 @@ class TrainerConfig(PrintableConfig):
     """Whether or not to use mixed precision for training."""
     relative_model_dir: Path = Path("nerfstudio_models/")
     """Relative path to save all checkpoints."""
+    relative_vqad_model_dir: Path = Path("vqad_models/")
+    """Relative path to save all VQAD related checkpoints."""
     save_only_latest_checkpoint: bool = True
     """Whether to only save the latest checkpoint or all checkpoints."""
     # optional parameters if we want to resume training
@@ -155,6 +157,14 @@ class TrainerConfig(PrintableConfig):
     """Optionally specify a pre-trained model directory to load from."""
     load_step: Optional[int] = None
     """Optionally specify model step to load from; if none, will find most recent model in load_dir."""
+    load_vqad_dir: Optional[Path] = None
+    """Optionally select a pre-rrained vqad model's directory to load codebook and network weights from"""
+    load_vqad_step: Optional[int] = None
+    """Optionally specify vqad model step to load from; if none, will find most recent model in load_vqad_dir."""
+    load_vqad_codebook_freeze: bool = True
+    """Whether or not to freeze codebook weights"""
+    load_vqad_mlp_freeze: bool = True
+    """Whether or not to freeze mlp weights"""
     load_config: Optional[Path] = None
 
 
@@ -261,6 +271,10 @@ class Config(PrintableConfig):
     def get_checkpoint_dir(self) -> Path:
         """Retrieve the checkpoint directory"""
         return Path(self.get_base_dir() / self.trainer.relative_model_dir)
+    
+    def get_vqad_checkpoint_dir(self) -> Path:
+        """Retrieve the checkpoint directory"""
+        return Path(self.get_base_dir() / self.trainer.relative_vqad_model_dir)
 
     def print_to_terminal(self) -> None:
         """Helper to pretty print config to terminal"""
