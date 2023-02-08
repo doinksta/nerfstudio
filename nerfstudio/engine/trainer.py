@@ -87,6 +87,8 @@ class Trainer:
         self.base_dir = config.get_base_dir()
         # directory to save checkpoints
         self.checkpoint_dir = config.get_checkpoint_dir()
+        if self.config.method_name == 'vqad':
+            self.vqad_checkpoint_dir = config.get_vqad_checkpoint_dir()
         CONSOLE.log(f"Saving checkpoints to: {self.checkpoint_dir}")
         # set up viewer if enabled
         viewer_log_path = self.base_dir / config.viewer.relative_log_filename
@@ -118,6 +120,9 @@ class Trainer:
         self.optimizers = setup_optimizers(self.config, self.pipeline.get_param_groups())
 
         self._load_checkpoint()
+        
+        ###; make clone of load checkpoint, but conditioned on diff argument to
+        # specify the checkpoint to only grab the dictionary stuff / codebook stuff
 
         self.callbacks = self.pipeline.get_training_callbacks(
             TrainingCallbackAttributes(
@@ -253,6 +258,7 @@ class Trainer:
 
     def _load_checkpoint(self) -> None:
         """Helper function to load pipeline and optimizer from prespecified checkpoint"""
+        ###;
         load_dir = self.config.trainer.load_dir
         if load_dir is not None:
             load_step = self.config.trainer.load_step
@@ -271,6 +277,49 @@ class Trainer:
             CONSOLE.print(f"done loading checkpoint from {load_path}")
         else:
             CONSOLE.print("No checkpoints to load, training from scratch")
+        
+        
+        if self.config.method_name == 'vqad':
+            load_vqad_dir = self.config.trainer.load_vqad_dir
+            if load_vqad_dir is not None:
+                load_vqad_step = self.config.trainer.load_vqad_step
+                if load_vqad_step is None:
+                    print("Loading latest VQAD checkpoint from load_vqad_dir")
+                    # NOTE: this is specific to the checkpoint name format
+                    load_vqad_step = sorted(int(x[x.find("-") + 1 : x.find(".")]) for x in os.listdir(load_vqad_dir))[-1]
+                
+                load_vqad_path = load_vqad_dir / f"vqad-{load_vqad_step:09d}.ckpt"
+                assert load_vqad_path.exists(), f"Checkpoint {load_vqad_path} does not exist"
+                loaded_vqad_state = torch.load(load_vqad_path, map_location="cpu")
+                
+                self.pipeline._model.field.position_encoding.codebook = loaded_vqad_state['codebook']
+                self.pipeline._model.field.mlp_base.load_state_dict(loaded_vqad_state['mlp_base'])
+                self.pipeline._model.field.mlp_head.load_state_dict(loaded_vqad_state['mlp_head'])
+                
+                # May need to freeze these weights
+                
+                if self.config.trainer.load_vqad_codebook_freeze:
+                    self.pipeline._model.field.position_encoding.codebook.requires_grad = False
+                    
+                    print("Froze codebook weights")
+                
+                if self.config.trainer.load_vqad_mlp_freeze:
+                    for param in self.pipeline._model.field.mlp_base.parameters():
+                        param.requires_grad = False
+                    
+                    for param in self.pipeline._model.field.mlp_head.parameters():
+                        param.requires_grad = False
+                        
+                    print("Froze MLP weights")
+                
+                # self._start_step = loaded_state["step"] + 1  # we just want to copy VQAD details, but have same start step of 0
+                
+                CONSOLE.print(f"done loading vqad checkpoint from {load_vqad_path}")
+            else:
+                CONSOLE.print("No vqad checkpoints to load, training from scratch")
+            
+        ###;fff
+        # if self.config.method_name == 'vqad':
 
     @check_main_thread
     def save_checkpoint(self, step: int) -> None:
@@ -284,6 +333,7 @@ class Trainer:
             self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
         # save the checkpoint
         ckpt_path = self.checkpoint_dir / f"step-{step:09d}.ckpt"
+        
         torch.save(
             {
                 "step": step,
@@ -295,12 +345,35 @@ class Trainer:
             },
             ckpt_path,
         )
+        
+        ### Note: pretty hacky, will break all other pipelines for now
+        if self.config.method_name == 'vqad':
+            if not self.vqad_checkpoint_dir.exists():
+                self.vqad_checkpoint_dir.mkdir(parents=True, exist_ok=True)
+            
+            vqad_ckpt_path = self.vqad_checkpoint_dir / f"vqad-{step:09d}.ckpt"
+            
+            torch.save(
+                {
+                    "codebook": self.pipeline._model.field.position_encoding.codebook,
+                    "mlp_base": self.pipeline._model.field.mlp_base.state_dict(),
+                    "mlp_head": self.pipeline._model.field.mlp_head.state_dict(),
+                },
+                vqad_ckpt_path,
+            )
+        
         # possibly delete old checkpoints
         if self.config.trainer.save_only_latest_checkpoint:
             # delete everything else in the checkpoint folder
             for f in self.checkpoint_dir.glob("*"):
+                # if f != ckpt_path:
                 if f != ckpt_path:
                     f.unlink()
+            
+            if self.config.method_name == 'vqad':
+                for f in self.vqad_checkpoint_dir.glob("*"):
+                    if f != vqad_ckpt_path:
+                        f.unlink()
 
     @profiler.time_function
     def train_iteration(self, step: int) -> Tuple[torch.Tensor, Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
@@ -318,7 +391,7 @@ class Trainer:
         self.optimizers.optimizer_scaler_step_all(self.grad_scaler)
         self.grad_scaler.update()
         self.optimizers.scheduler_step_all(step)
-
+        
         # Merging loss and metrics dict into a single output.
         return loss, loss_dict, metrics_dict
 
