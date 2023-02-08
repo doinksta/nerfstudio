@@ -53,6 +53,7 @@ from nerfstudio.model_components.renderers import (
     NormalsRenderer,
     RGBRenderer,
     CodebookRenderer,
+    CodebookWeightsRenderer,
 )
 from nerfstudio.model_components.scene_colliders import NearFarCollider
 from nerfstudio.models.base_model import Model, ModelConfig
@@ -201,6 +202,7 @@ class VQADModel(Model):
         self.renderer_depth = DepthRenderer()
         self.renderer_normals = NormalsRenderer()
         self.renderer_codebook = CodebookRenderer()
+        self.renderer_codebookweights=CodebookWeightsRenderer()
         #some new rennder things
         
         
@@ -257,35 +259,105 @@ class VQADModel(Model):
         weights_list.append(weights)
         ray_samples_list.append(ray_samples)
 
-        rgb = self.renderer_rgb(rgb=field_outputs[FieldHeadNames.RGB], weights=weights)
-        
+        rgb = self.renderer_rgb(rgb=field_outputs[FieldHeadNames.RGB], weights=weights) 
+        # breakpoint()
+        rgb2 = self.renderer_rgb(rgb=field_outputs[FieldHeadNames.RGBMAX], weights=weights)
         
         depth = self.renderer_depth(weights=weights, ray_samples=ray_samples)
         accumulation = self.renderer_accumulation(weights=weights)
 
         outputs = {
             "rgb": rgb,
+            "rgb2":rgb2,
             "accumulation": accumulation,
             "depth": depth,
         }
-
+        
+        #breakpoint()
+        outputs['codebook_weights']=field_outputs[FieldHeadNames.CODEBOOK_COEFFICIENT]
         for i in range(len(field_outputs[FieldHeadNames.CODEBOOK_INDEX])):
             # outputs['codebook_level{}'.format(i)] = ###3
             colors = torch.tensor([
-                    [0, 0, 0],
                     [0, 0, 1],
                     [0, 1, 0],  
                     [1, 0, 0],
                     [1, 1, 0],
                     [0, 1, 1],
                     [1, 0, 1],
-                    [1, 1, 1]
+                    [0.5,0,0], [0,0.5,0], [0,0,0.5], [0.5,0.5,0], [0.5,0,0.5], [0,0.5,0.5], [0.5,0.5,0.5], 
+                    [0.75,0,0], [0,0.75,0], [0,0,0.75], [0.75,0.75,0], [0.75,0,0.75], [0,0.75,0.75], [0.75,0.75,0.75], 
+                    [0.25,0,0], [0,0.25,0], [0,0,0.25], [0.25,0.25,0], [0.25,0,0.25], [0,0.25,0.25], [0.25,0.25,0.25], 
+                    [0.5,0.25,0], [0.5,0,0.25], [0.25,0.5,0], [0,0.5,0.25], [0.25,0,0.5], [0,0.25,0.5], [0.5,0.5,0.25], 
+                    [0.5,0.25,0.5], [0.25,0.5,0.5], [0.5,0.25,0.25], [0.25,0.5,0.25], [0.25,0.25,0.5], [0.5,0.5,0.5], 
+                    [0.25,0.25,0], [0.25,0,0.25], [0,0.25,0.25], [0.25,0.25,0.75], [0.25,0.75,0.25], [0.75,0.25,0.25], 
+                    [0.75,0.25,0.75], [0.75,0.75,0.25], [0.25,0.75,0.75], [0.5,0.5,0], [0.5,0,0.5], [0,0.5,0.5], [0.5,0.75,0],
+                    [0.5,0,0.75], [0,0.5,0.75], [0.5,0.75,0.5], [0.75,0.5,0], [0.75,0,0.5], [0,0.75,0.5], [0.75,0.5,0.75], 
+                    [0.75,0.75,0.5], [0.5,0.75,0.75],
+                    [0, 0, 0],
+                    [1, 1, 1],
                     ]).float().to(field_outputs[FieldHeadNames.CODEBOOK_INDEX][i].device) 
+            
+            colors_white = torch.tensor([
+                    [1, 1, 1],[1, 1, 1],[1, 1, 1],[1, 1, 1],[1, 1, 1],[1, 1, 1],[1, 1, 1],[1, 1, 1],[1, 1, 1],
+                    [1, 1, 1],[1, 1, 1],[1, 1, 1],[1, 1, 1],[1, 1, 1],[1, 1, 1],[1, 1, 1],[1, 1, 1],[1, 1, 1],
+                    ]).float().to(field_outputs[FieldHeadNames.CODEBOOK_INDEX][i].device) 
+            
+            
             x1,x2=field_outputs[FieldHeadNames.CODEBOOK_INDEX][i].shape[:2]
+            # breakpoint()
+            weights_of_codebook=field_outputs[FieldHeadNames.CODEBOOK_COEFFICIENT]
             index_colors=colors[field_outputs[FieldHeadNames.CODEBOOK_INDEX][i]].view((x1,x2,3))
-            outputs['codebook_level{}'.format(i)] = self.renderer_codebook(rgb=index_colors, weights=weights)
-       
-        
+            outputs['level{}_codebook_max'.format(i)] = self.renderer_codebook(rgb=index_colors, weights=weights)
+            for j in range(len(field_outputs[FieldHeadNames.CODEBOOK_COEFFICIENT])):
+                colors_white[j]=colors[j].float().to(field_outputs[FieldHeadNames.CODEBOOK_INDEX][i].device) 
+                index_colors=colors_white[field_outputs[FieldHeadNames.CODEBOOK_INDEX][i]].view((x1,x2,3))
+                outputs['level{}_codebook{}_max'.format(i,j)] = self.renderer_codebook(rgb=index_colors, weights=weights)
+                colors_white[j]=torch.tensor([1,1,1]).float().to(field_outputs[FieldHeadNames.CODEBOOK_INDEX][i].device) 
+            
+            # # breakpoint()
+            # x1,x2=field_outputs[FieldHeadNames.CODEBOOK_INDEX][i].shape[:2]
+            # (y0,y1,y2,y3)=weights_of_codebook.shape
+            # codebook_colors= weights_of_codebook.view(y1,y2,y0)@colors[:len(field_outputs[FieldHeadNames.CODEBOOK_COEFFICIENT])]
+            # outputs['codebook_level{}_add'.format(i)] =  self.renderer_codebook(rgb=codebook_colors,weights=weights)
+            
+            '''      
+            for  j in range(len(field_outputs[FieldHeadNames.CODEBOOK_COEFFICIENT])):
+                # outputs['codebook_level{}'.format(i)] = ###3
+                weights_of_codebook=field_outputs[FieldHeadNames.CODEBOOK_COEFFICIENT]
+                
+                # codebook_colors= weights_of_codebook[j]*colors[2]+(1-weights_of_codebook[j])*colors[3]
+                # min_val = codebook_colors.min()
+                # range_val = codebook_colors.max() - min_val
+                # normalized_colors = (codebook_colors - min_val) / range_val
+                # outputs['codebook_level{}_codebook_number{}'.format(i,j)] =  self.renderer_codebook(rgb=codebook_colors,weights=weights)
+                
+                outputs['codebook_level{}_codebook_number{}'.format(i,j)] =  self.renderer_codebookweights(codebook_coef=weights_of_codebook[j],weights=weights,ray_samples=ray_samples)
+                # break
+                # breakpoint()
+           ''' 
+            # breakpoint()
+            # #now we do kmeans and then do the render
+            
+            # state = torch.get_rng_state()
+            # from kmeans_pytorch import kmeans
+            # torch.manual_seed(11)
+            
+
+            # X =field_outputs[FieldHeadNames.CODEBOOK_COEFFICIENT].view(-1,field_outputs[FieldHeadNames.CODEBOOK_COEFFICIENT].shape[0])
+            # X =torch.cat((weights.reshape(-1,1),X),dim=1)
+            
+            # num_clusters=5
+            # # kmeans
+            # cluster_ids_x, cluster_centers = kmeans(X=X, num_clusters=num_clusters, distance='euclidean', device=self.device)
+            # # breakpoint()
+            # cluster_colors=colors[cluster_ids_x].view(x1,x2,3)
+            # outputs['codebook_level{}_cluster2'.format(i)] = self.renderer_codebook(rgb=cluster_colors, weights=weights)
+            # torch.set_rng_state(state)
+            
+            
+           
+            # breakpoint()
+            
         if self.config.predict_normals:
             outputs["normals"] = self.renderer_normals(normals=field_outputs[FieldHeadNames.NORMALS], weights=weights)
             outputs["pred_normals"] = self.renderer_normals(field_outputs[FieldHeadNames.PRED_NORMALS], weights=weights)
@@ -323,7 +395,13 @@ class VQADModel(Model):
     def get_loss_dict(self, outputs, batch, metrics_dict=None):
         loss_dict = {}
         image = batch["image"].to(self.device)
-        loss_dict["rgb_loss"] = self.rgb_loss(image, outputs["rgb"])
+        loss_dict["rgb_loss"] = self.rgb_loss(image, outputs["rgb"])+1*self.rgb_loss(image, outputs["rgb2"])#+(torch.var(outputs['codebook_weights'],dim=0).mean()/100)
+        # breakpoint()
+        
+        #add a new loss to force the model to choose one codebook
+        # loss_dict["weight_varraince_loss"]=(torch.var(outputs['codebook_weights'],dim=0).mean()/100)
+        # breakpoint()
+        
         if self.training:
             loss_dict["interlevel_loss"] = self.config.interlevel_loss_mult * interlevel_loss(
                 outputs["weights_list"], outputs["ray_samples_list"]
@@ -336,7 +414,7 @@ class VQADModel(Model):
                     outputs["rendered_orientation_loss"]
                 )
 
-                # ground truth supervision for normals
+                # ground truth supervision for normals  
                 loss_dict["pred_normal_loss"] = self.config.pred_normal_loss_mult * torch.mean(
                     outputs["rendered_pred_normal_loss"]
                 )
