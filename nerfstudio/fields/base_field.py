@@ -101,15 +101,9 @@ class Field(nn.Module):
             with torch.enable_grad():
                 density, density_embedding = self.get_density(ray_samples)
         else:
-<<<<<<< HEAD
             density, density_embedding,density_embedding2 = self.get_density(ray_samples)
 
         field_outputs = self.get_outputs(ray_samples, density_embedding=density_embedding,density_embedding2=density_embedding2)
-=======
-            density, density_embedding = self.get_density(ray_samples)
-
-        field_outputs = self.get_outputs(ray_samples, density_embedding=density_embedding)
->>>>>>> fe0c2d56495d345d46cb88d188e5d6c456f88853
         field_outputs[FieldHeadNames.DENSITY] = density  # type: ignore
 
         if compute_normals:

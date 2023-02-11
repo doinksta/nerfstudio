@@ -115,10 +115,7 @@ class RGBRenderer(nn.Module):
         )
         if not self.training:
             torch.clamp_(rgb, min=0.0, max=1.0)
-<<<<<<< HEAD
         # breakpoint()
-=======
->>>>>>> fe0c2d56495d345d46cb88d188e5d6c456f88853
         return rgb
 
 
@@ -234,11 +231,7 @@ class DepthRenderer(nn.Module):
         Returns:
             Outputs of depth values.
         """
-<<<<<<< HEAD
         # breakpoint()
-=======
-
->>>>>>> fe0c2d56495d345d46cb88d188e5d6c456f88853
         if self.method == "median":
             steps = (ray_samples.frustums.starts + ray_samples.frustums.ends) / 2
 
@@ -250,10 +243,7 @@ class DepthRenderer(nn.Module):
             median_index = torch.clamp(median_index, 0, steps.shape[-2] - 1)  # [..., 1]
             median_depth = torch.gather(steps[..., 0], dim=-1, index=median_index)  # [..., 1]
             return median_depth
-<<<<<<< HEAD
         
-=======
->>>>>>> fe0c2d56495d345d46cb88d188e5d6c456f88853
         if self.method == "expected":
             eps = 1e-10
             steps = (ray_samples.frustums.starts + ray_samples.frustums.ends) / 2
@@ -399,7 +389,6 @@ class CodebookRenderer(nn.Module):
             torch.clamp_(rgb, min=0.0, max=1.0)
         return rgb
 
-<<<<<<< HEAD
 class CodebookWeightsRenderer(nn.Module):
     """Calculate depth along ray.
 
@@ -469,5 +458,3 @@ class CodebookWeightsRenderer(nn.Module):
             return depth
 
         raise NotImplementedError(f"Method {self.method} not implemented")
-=======
->>>>>>> fe0c2d56495d345d46cb88d188e5d6c456f88853

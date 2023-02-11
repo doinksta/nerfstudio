@@ -105,8 +105,5 @@ class SemanticNerfField(Field):
         # semantic
         mlp_out_sem = self.mlp_semantic(mlp_out)
         outputs[self.field_head_semantic.field_head_name] = self.field_head_semantic(mlp_out_sem)
-<<<<<<< HEAD
         breakpoint()
-=======
->>>>>>> fe0c2d56495d345d46cb88d188e5d6c456f88853
         return outputs

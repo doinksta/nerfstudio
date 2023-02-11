@@ -161,15 +161,9 @@ class TrainerConfig(PrintableConfig):
     """Optionally select a pre-rrained vqad model's directory to load codebook and network weights from"""
     load_vqad_step: Optional[int] = None
     """Optionally specify vqad model step to load from; if none, will find most recent model in load_vqad_dir."""
-<<<<<<< HEAD
     load_vqad_codebook_freeze: bool = False
     """Whether or not to freeze codebook weights"""
     load_vqad_mlp_freeze: bool = False
-=======
-    load_vqad_codebook_freeze: bool = True
-    """Whether or not to freeze codebook weights"""
-    load_vqad_mlp_freeze: bool = True
->>>>>>> fe0c2d56495d345d46cb88d188e5d6c456f88853
     """Whether or not to freeze mlp weights"""
     load_config: Optional[Path] = None
 

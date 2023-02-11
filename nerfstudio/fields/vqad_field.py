@@ -39,19 +39,13 @@ from nerfstudio.field_components.field_heads import (
     FieldHeadNames,
     PredNormalsFieldHead,
     RGBFieldHead,
-<<<<<<< HEAD
     RGBMAXFieldHead,
-=======
->>>>>>> fe0c2d56495d345d46cb88d188e5d6c456f88853
     CodeBookIndexFieldHead,
     SemanticFieldHead,
     TransientDensityFieldHead,
     TransientRGBFieldHead,
     UncertaintyFieldHead,
-<<<<<<< HEAD
     CoefficientFieldHead,
-=======
->>>>>>> fe0c2d56495d345d46cb88d188e5d6c456f88853
 )
 from nerfstudio.field_components.mlp import MLP
 from nerfstudio.field_components.spatial_distortions import (
@@ -94,11 +88,7 @@ class VQADField(Field):
         head_mlp_layer_width: int = 32,
         appearance_embedding_dim: int = 40,
         skip_connections: Tuple = (4,),
-<<<<<<< HEAD
         field_heads: Tuple[FieldHead] = (RGBFieldHead(),CodeBookIndexFieldHead(),CoefficientFieldHead(),RGBMAXFieldHead()),
-=======
-        field_heads: Tuple[FieldHead] = (RGBFieldHead(),CodeBookIndexFieldHead(),),
->>>>>>> fe0c2d56495d345d46cb88d188e5d6c456f88853
         spatial_distortion: SpatialDistortion = SceneContraction(),
     ) -> None:
         super().__init__()
@@ -153,7 +143,6 @@ class VQADField(Field):
             positions = SceneBox.get_normalized_positions(ray_samples.frustums.get_positions(), self.aabb)
 
         # Positions are normalized to be in the range [0, 1]
-<<<<<<< HEAD
         encoded_xyz,encoded_xyz2,self.codebook_index,self.coef = self.position_encoding(positions)       
         base_mlp_out = self.mlp_base(encoded_xyz)
         base_mlp_out2 = self.mlp_base(encoded_xyz2)
@@ -165,16 +154,6 @@ class VQADField(Field):
     #'''
     def get_outputs(
         self, ray_samples: RaySamples, density_embedding: Optional[TensorType] = None ,density_embedding2: Optional[TensorType] = None
-=======
-        encoded_xyz, self.codebook_index = self.position_encoding(positions)       
-        base_mlp_out = self.mlp_base(encoded_xyz)
-        density = self.field_output_density(base_mlp_out)
-        
-        return density, base_mlp_out
-    #'''
-    def get_outputs(
-        self, ray_samples: RaySamples, density_embedding: Optional[TensorType] = None
->>>>>>> fe0c2d56495d345d46cb88d188e5d6c456f88853
     ) -> Dict[FieldHeadNames, TensorType]:
 
         outputs_shape = ray_samples.frustums.directions.shape[:-1]
@@ -194,25 +173,16 @@ class VQADField(Field):
         #breakpoint()
         field_head =self.field_heads[0]
         encoded_dir = self.direction_encoding(ray_samples.frustums.directions)
-<<<<<<< HEAD
        
-=======
-        #breakpoint()
->>>>>>> fe0c2d56495d345d46cb88d188e5d6c456f88853
         mlp_out = self.mlp_head(
             torch.cat(
                 [
                     encoded_dir,
-<<<<<<< HEAD
                     density_embedding,  
-=======
-                    density_embedding,  # type:ignore
->>>>>>> fe0c2d56495d345d46cb88d188e5d6c456f88853
                     embedded_appearance,
                 ],
                 dim=-1,  # type:ignore
             )
-<<<<<<< HEAD
         ) 
         # breakpoint()
         outputs[field_head.field_head_name] = field_head(mlp_out)#[4096,48,3]
@@ -239,12 +209,6 @@ class VQADField(Field):
         outputs[field_head.field_head_name]= self.coef # we use codebook_entry 5 here[5,4096,48,1]
         
         
-=======
-        )
-        outputs[field_head.field_head_name] = field_head(mlp_out)#[4096,48,3]
-        field_head =self.field_heads[1] 
-        outputs[field_head.field_head_name]= self.codebook_index#[4,4096,48,1]
->>>>>>> fe0c2d56495d345d46cb88d188e5d6c456f88853
         # breakpoint()
         return outputs
 
