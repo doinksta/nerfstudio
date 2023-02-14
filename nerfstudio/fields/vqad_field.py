@@ -143,14 +143,16 @@ class VQADField(Field):
             positions = SceneBox.get_normalized_positions(ray_samples.frustums.get_positions(), self.aabb)
 
         # Positions are normalized to be in the range [0, 1]
-        encoded_xyz,encoded_xyz2,self.codebook_index,self.coef = self.position_encoding(positions)       
-        base_mlp_out = self.mlp_base(encoded_xyz)
-        base_mlp_out2 = self.mlp_base(encoded_xyz2)
+        encoded_xyz1,encoded_xyz2,self.codebook_index,self.coef = self.position_encoding(positions)      
+        base_mlp_out1 = self.mlp_base(encoded_xyz1)
+        base_mlp_out2 = self.mlp_base(encoded_xyz2.to(encoded_xyz1.device))
+        base_mlp_out = torch.cat((base_mlp_out1.unsqueeze(0), base_mlp_out2.unsqueeze(0)), dim=0)
         
-        density = self.field_output_density(base_mlp_out)
+        density = self.field_output_density(base_mlp_out1)
         # breakpoint()
         #base_mlp_out=density_embedding
-        return density, base_mlp_out,base_mlp_out2
+       
+        return density, base_mlp_out
     #'''
     def get_outputs(
         self, ray_samples: RaySamples, density_embedding: Optional[TensorType] = None ,density_embedding2: Optional[TensorType] = None
@@ -178,7 +180,7 @@ class VQADField(Field):
             torch.cat(
                 [
                     encoded_dir,
-                    density_embedding,  
+                    density_embedding[0],  
                     embedded_appearance,
                 ],
                 dim=-1,  # type:ignore
@@ -193,7 +195,7 @@ class VQADField(Field):
             torch.cat(
                 [
                     encoded_dir,
-                    density_embedding2,  
+                    density_embedding[1],  
                     embedded_appearance,
                 ],
                 dim=-1,  # type:ignore

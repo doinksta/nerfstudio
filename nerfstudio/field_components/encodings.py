@@ -614,8 +614,8 @@ class CodeBookEncoding(Encoding):
         self,
         resolutions: int = [256], #[32,64,128,256],
         init_scale: float = 0.1,
-        codebook_width: int = 16,
-        n_codebook_entry: int = 16,
+        codebook_width: int = 32,
+        n_codebook_entry: int = 8,
         n_codebook_level: int = 1,
         
     ) -> None:
@@ -626,7 +626,7 @@ class CodeBookEncoding(Encoding):
         self.codebook = torch.randn(size=(self.n_codebook_level,self.n_codebook_entry, self.codebook_width))
         
         self.resolutions = resolutions
-        self.volume_raw_prob0 = nn.Parameter(init_scale * torch.randn((1, self.n_codebook_entry, self.resolutions[0], self.resolutions[0], self.resolutions[0])))
+        self.volume_raw_prob0 =  torch.randn((1, self.n_codebook_entry, self.resolutions[0], self.resolutions[0], self.resolutions[0]))
         # self.volume_raw_prob1 = nn.Parameter(init_scale * torch.randn((1, self.n_codebook_entry, self.resolutions[1], self.resolutions[1], self.resolutions[1])))
         # self.volume_raw_prob2 = nn.Parameter(init_scale * torch.randn((1, self.n_codebook_entry, self.resolutions[2], self.resolutions[2], self.resolutions[2])))
         # self.volume_raw_prob3 = nn.Parameter(init_scale * torch.randn((1, self.n_codebook_entry, self.resolutions[3], self.resolutions[3], self.resolutions[3])))
@@ -634,12 +634,15 @@ class CodeBookEncoding(Encoding):
         # self.volume_raw_prob5 = nn.Parameter(init_scale * torch.randn((1, self.n_codebook_entry, self.resolutions[5], self.resolutions[5], self.resolutions[5])))
         # self.volume_raw_prob6 = nn.Parameter(init_scale * torch.randn((1, self.n_codebook_entry, self.resolutions[6], self.resolutions[6], self.resolutions[6])))
         # self.volume_raw_prob7 = nn.Parameter(init_scale * torch.randn((1, self.n_codebook_entry, self.resolutions[7], self.resolutions[7], self.resolutions[7])))
-        
-       
+        self.volume_raw_prob0 = nn.Parameter(init_scale * self.volume_raw_prob0)
         self.codebook=nn.Parameter(init_scale * self.codebook)
     
     def get_out_dim(self) -> int:
         return self.codebook_width*self.n_codebook_level
+    
+    def load_checkpoint(self, checkpoint_file):
+        self.codebook.data = checkpoint_file['codebook']
+        self.volume_raw_prob0.data = checkpoint_file['weights']
     
     def forward(self, in_tensor: TensorType["bs":..., "input_dim"]) -> TensorType["bs":..., "output_dim"]:
         volume_coord = (in_tensor.view(1, -1, 1, 1, 3) * 2 - 1).detach()#([1, 196608, 1, 1, 3])

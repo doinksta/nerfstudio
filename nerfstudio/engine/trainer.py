@@ -278,7 +278,7 @@ class Trainer:
         else:
             CONSOLE.print("No checkpoints to load, training from scratch")
         
-        
+        '''''' 
         if self.config.method_name == 'vqad':
             load_vqad_dir = self.config.trainer.load_vqad_dir
             if load_vqad_dir is not None:
@@ -290,18 +290,31 @@ class Trainer:
                 
                 load_vqad_path = load_vqad_dir / f"vqad-{load_vqad_step:09d}.ckpt"
                 assert load_vqad_path.exists(), f"Checkpoint {load_vqad_path} does not exist"
+                # breakpoint()
                 loaded_vqad_state = torch.load(load_vqad_path, map_location="cpu")
+                # load the checkpoints for pipeline, optimizers, and gradient scalar
+                # self.pipeline.load_pipeline(loaded_vqad_state["pipeline"])
+                # self.optimizers.load_optimizers(loaded_vqad_state["optimizers"])
+                # self.grad_scaler.load_state_dict(loaded_vqad_state["scalers"])
+                self._start_step = loaded_vqad_state["step"] + 1
                 
-                self.pipeline._model.field.position_encoding.codebook = loaded_vqad_state['codebook']
+                self.pipeline._model.field.position_encoding.codebook.data = loaded_vqad_state['codebook']
+                # self.pipeline._model.field.position_encoding.volume_raw_prob0.data = loaded_vqad_state['weights']
+                # self.pipeline._model.field.position_encoding.load_checkpoint(loaded_vqad_state)
                 self.pipeline._model.field.mlp_base.load_state_dict(loaded_vqad_state['mlp_base'])
                 self.pipeline._model.field.mlp_head.load_state_dict(loaded_vqad_state['mlp_head'])
-                
+                # breakpoint()
                 # May need to freeze these weights
                 
                 if self.config.trainer.load_vqad_codebook_freeze:
                     self.pipeline._model.field.position_encoding.codebook.requires_grad = False
                     
-                    print("Froze codebook weights")
+                    print("Froze codebook")
+                    
+                # if self.config.trainer.load_vqad_codebookweights_freeze:
+                #     self.pipeline._model.field.position_encoding.volume_raw_prob0.requires_grad= False
+                    
+                #     print("Froze codebook weights")
                 
                 if self.config.trainer.load_vqad_mlp_freeze:
                     for param in self.pipeline._model.field.mlp_base.parameters():
@@ -317,7 +330,7 @@ class Trainer:
                 CONSOLE.print(f"done loading vqad checkpoint from {load_vqad_path}")
             else:
                 CONSOLE.print("No vqad checkpoints to load, training from scratch")
-            
+           
         ###;fff
         # if self.config.method_name == 'vqad':
 
@@ -355,7 +368,15 @@ class Trainer:
             
             torch.save(
                 {
+                    "step": step,
+                    "pipeline": self.pipeline.module.state_dict()  # type: ignore
+                    if hasattr(self.pipeline, "module")
+                    else self.pipeline.state_dict(),
+                    "optimizers": {k: v.state_dict() for (k, v) in self.optimizers.optimizers.items()},
+                    "scalers": self.grad_scaler.state_dict(),
+                    
                     "codebook": self.pipeline._model.field.position_encoding.codebook,
+                    "weights":  self.pipeline._model.field.position_encoding.volume_raw_prob0,
                     "mlp_base": self.pipeline._model.field.mlp_base.state_dict(),
                     "mlp_head": self.pipeline._model.field.mlp_head.state_dict(),
                 },

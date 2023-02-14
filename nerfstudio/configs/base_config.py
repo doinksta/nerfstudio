@@ -162,6 +162,8 @@ class TrainerConfig(PrintableConfig):
     load_vqad_step: Optional[int] = None
     """Optionally specify vqad model step to load from; if none, will find most recent model in load_vqad_dir."""
     load_vqad_codebook_freeze: bool = False
+    """Whether or not to freeze codebook"""
+    load_vqad_codebookweights_freeze: bool = False
     """Whether or not to freeze codebook weights"""
     load_vqad_mlp_freeze: bool = False
     """Whether or not to freeze mlp weights"""
