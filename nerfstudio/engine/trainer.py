@@ -292,11 +292,12 @@ class Trainer:
                 assert load_vqad_path.exists(), f"Checkpoint {load_vqad_path} does not exist"
                 # breakpoint()
                 loaded_vqad_state = torch.load(load_vqad_path, map_location="cpu")
+                # breakpoint()
                 # load the checkpoints for pipeline, optimizers, and gradient scalar
                 # self.pipeline.load_pipeline(loaded_vqad_state["pipeline"])
                 # self.optimizers.load_optimizers(loaded_vqad_state["optimizers"])
                 # self.grad_scaler.load_state_dict(loaded_vqad_state["scalers"])
-                self._start_step = loaded_vqad_state["step"] + 1
+                # self._start_step = loaded_vqad_state["step"] + 1
                 
                 self.pipeline._model.field.position_encoding.codebook.data = loaded_vqad_state['codebook']
                 # self.pipeline._model.field.position_encoding.volume_raw_prob0.data = loaded_vqad_state['weights']

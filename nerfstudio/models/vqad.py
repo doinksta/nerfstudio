@@ -274,7 +274,7 @@ class VQADModel(Model):
         }
         
         #breakpoint()
-        outputs['codebook_weights']=field_outputs[FieldHeadNames.CODEBOOK_COEFFICIENT]
+        # outputs['codebook_weights']=field_outputs[FieldHeadNames.CODEBOOK_COEFFICIENT]
         for i in range(len(field_outputs[FieldHeadNames.CODEBOOK_INDEX])):
             # outputs['codebook_level{}'.format(i)] = ###3
             colors = torch.tensor([
